@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login</title>
+  <style type="text/css">
+    input {
+      background-color: gray;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid black;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+    .edit-form {
+      border: 1px solid black;
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="main">
+    <h3>Hola a la aplicación: {{ name_app }}</h3>
+    <hr>
+    <form @submit.prevent="login"> 
+      <fieldset>
+        <label>Email</label>
+        <input type="email" v-model="email" placeholder="write here">
+      </fieldset>
+      <fieldset>
+        <label>Password</label>
+        <input type="password" v-model="password" placeholder="write here">
+      </fieldset>
+      <button type="submit">Access</button>
+    </form>
+    <p v-if="loginError">{{ loginError }}</p>
+    <hr>
+    <div v-if="userLogged">
+      <h3>Usuario Autenticado</h3>
+      <p><strong>Email:</strong> {{ userLogged.email }}</p>
+    </div>
+
+    <h3>Todos los Usuarios</h3>
+    <table v-if="allUsers.length > 0">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Password</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(user, index) in allUsers" :key="user.email">
+          <td>{{ user.email }}</td>
+          <td>{{ user.password }}</td>
+          <td>
+            <button @click="editUser(index)">Editar</button>
+            <button @click="deleteUser(index)">Eliminar</button>
+          </td>
+        </tr>
+        <tr v-if="editIndex === index">
+          <td colspan="3">
+            <div class="edit-form">
+              <h3>Editar Usuario</h3>
+              <form @submit.prevent="updateUser">
+                <fieldset>
+                  <label>Email</label>
+                  <input type="email" v-model="editEmail" placeholder="Edit email">
+                </fieldset>
+                <fieldset>
+                  <label>Password</label>
+                  <input type="password" v-model="editPassword" placeholder="Edit password">
+                </fieldset>
+                <button type="submit">Guardar cambios</button>
+                <button type="button" @click="cancelEdit">Cancelar</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p v-else>No hay usuarios cargados.</p>
+  </div>
+  
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const name_app = ref('Mi primer app');
+        const email = ref('');
+        const password = ref('');
+        const loginError = ref('');
+        const userLogged = ref(null);
+        const allUsers = ref([]);
+        const editIndex = ref(null);  
+        const editEmail = ref('');  
+        const editPassword = ref('');  
+
+        const login = () => {
+          fetch('users.json')
+            .then(response => response.json())
+            .then(users => {
+              let validUser = null;
+              users.forEach(user => {
+                if (user.email === email.value && user.password === password.value) {
+                  validUser = user;
+                }
+              });
+
+              if (validUser) {
+                sessionStorage.setItem('userLogged', JSON.stringify(validUser));  
+                userLogged.value = validUser;
+                loginError.value = '';  
+                alert('Login exitoso');
+              } else {
+                loginError.value = 'Email o contraseña incorrectos';
+              }
+            })
+            .catch(error => {
+              console.error('Error al cargar los usuarios:', error);
+              loginError.value = 'Error de conexión';
+            });
+        };
+
+        const deleteUser = (index) => {
+          allUsers.value.splice(index, 1);
+          localStorage.setItem('allUsers', JSON.stringify(allUsers.value));
+        };
+
+        const editUser = (index) => {
+          editIndex.value = index;
+          editEmail.value = allUsers.value[index].email;
+          editPassword.value = allUsers.value[index].password;
+        };
+
+        const updateUser = () => {
+          allUsers.value[editIndex.value].email = editEmail.value;
+          allUsers.value[editIndex.value].password = editPassword.value;
+
+          localStorage.setItem('allUsers', JSON.stringify(allUsers.value));
+
+          editIndex.value = null;
+          editEmail.value = '';
+          editPassword.value = '';
+        };
+
+        const cancelEdit = () => {
+          // Cancelar la edición y limpiar el formulario
+          editIndex.value = null;
+          editEmail.value = '';
+          editPassword.value = '';
+        };
+
+        const checkSession = () => {
+          const storedUser = sessionStorage.getItem('userLogged');
+          if (storedUser) {
+            userLogged.value = JSON.parse(storedUser);
+          }
+        };
+
+        const loadAllUsers = () => {
+          const storedUsers = JSON.parse(localStorage.getItem('allUsers'));
+
+          if (storedUsers && storedUsers.length > 0) {
+            allUsers.value = storedUsers;  
+          } else {
+            fetch('users.json')  
+              .then(response => response.json())
+              .then(users => {
+                allUsers.value = users;  
+                localStorage.setItem('allUsers', JSON.stringify(users));  
+              })
+              .catch(error => {
+                console.error('Error al cargar los usuarios:', error);
+              });
+          }
+        };
+
+        checkSession();
+        loadAllUsers();
+
+        return {
+          name_app,
+          email,
+          password,
+          login,
+          loginError,
+          userLogged,
+          allUsers,
+          deleteUser,
+          editUser,
+          updateUser,
+          cancelEdit,
+          editEmail,
+          editPassword,
+          editIndex
+        };
+      }
+    }).mount('#main');
+  </script>
+</body>
+</html>
